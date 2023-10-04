@@ -37,7 +37,8 @@ def load_hands(file_path: str) -> List[List[List[str]]]:
 
     return hands
 
-def calculate_vpip(hands: List[List[List[str]]], user_list: List[str]) -> Dict[str, float]:
+def calculate_vpip(hands: List[List[List[str]]], user_list: List[str],
+        min_player: int = 2, max_player: int = 10) -> Dict[str, float]:
     # TODO: add more general user handling
     total_hands = dict(zip(user_list, [0.0] * len(user_list)))
     vpip_hands = dict(zip(user_list, [0.0] * len(user_list)))
@@ -47,6 +48,9 @@ def calculate_vpip(hands: List[List[List[str]]], user_list: List[str]) -> Dict[s
         for item in hand:
             action, _, _ = item
             if "Player stacks" in action:
+                n_players = action.count('@')
+                if n_players < min_player or n_players > max_player:
+                    break
                 for user in user_list:
                     if user in action:
                         total_hands[user] += 1
@@ -64,7 +68,8 @@ def calculate_vpip(hands: List[List[List[str]]], user_list: List[str]) -> Dict[s
 
     return vpip
 
-def calculate_pfr(hands: List[List[List[str]]], user_list: List[str]) -> Dict[str, float]:
+def calculate_pfr(hands: List[List[List[str]]], user_list: List[str],
+        min_player: int = 2, max_player: int = 10) -> Dict[str, float]:
     # TODO: add more general user handling
     total_hands = dict(zip(user_list, [0.0] * len(user_list)))
     pfr_hands = dict(zip(user_list, [0.0] * len(user_list)))
@@ -74,6 +79,9 @@ def calculate_pfr(hands: List[List[List[str]]], user_list: List[str]) -> Dict[st
         for item in hand:
             action, _, _ = item
             if "Player stacks" in action:
+                n_players = action.count('@')
+                if n_players < min_player or n_players > max_player:
+                    break
                 for user in user_list:
                     if user in action:
                         total_hands[user] += 1
@@ -157,7 +165,31 @@ def plot_vpip_pfr(vpip: Dict[str, float], pfr: Dict[str, float]) -> None:
 
     plt.show()
 
+def get_args():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description = "Parser for poker analysis.",
+        formatter_class = argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "--min-player",
+        type = int,
+        default = 2,
+        help = "Minimum number of players to consider for analysis."
+    )
+    parser.add_argument(
+        "--max-player",
+        type = int,
+        default = 10,
+        help = "Maximum number of players to consider for analysis."
+    )
+    args = parser.parse_args()
+
+    return args
+
 def main():
+    args = get_args()
     name_map, all_users = create_user_map("user_names.json")
     log_files = get_all_log_files(LOG_FILE_PATH)
 
@@ -167,8 +199,8 @@ def main():
         hands = preprocess(hands, name_map)
         all_hands.extend(hands)
 
-    vpip = calculate_vpip(all_hands, all_users)
-    pfr = calculate_pfr(all_hands, all_users)
+    vpip = calculate_vpip(all_hands, all_users, min_player = args.min_player, max_player = args.max_player)
+    pfr = calculate_pfr(all_hands, all_users, min_player = args.min_player, max_player = args.max_player)
 
     plot_vpip_pfr(vpip, pfr)
     
