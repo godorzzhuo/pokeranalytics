@@ -127,6 +127,36 @@ def create_user_map(file_path):
                 name_map[screen_name] = unique_name
         return name_map, all_users
 
+def plot_vpip_pfr(vpip: Dict[str, float], pfr: Dict[str, float]) -> None:
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as mcolors
+    import numpy as np
+    import random
+
+    #colors = list(mcolors.XKCD_COLORS.keys())
+    #colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'tab:orange', 'tab:brown', 'tab:pink', 'tab:grey', 'tab:red']
+    colors = ['black', 'grey', 'lightgrey', 'red', 'darkred', 'tomato', 'yellow', 'green', 'yellowgreen', 'lime', 'gold', 'blue', 'blueviolet', 'cornflowerblue', 'pink', 'cyan', 'orange', 'olive', 'fuchsia']
+    random.shuffle(colors)
+
+    fig, ax = plt.subplots()
+    n_users = len(vpip)
+
+    for idx, name in enumerate(vpip.keys()):
+        v = vpip[name]
+        p = pfr[name]
+
+        ax.scatter(v, p, c = colors[idx], label = name, s = 80)
+
+    font = {'family':'serif','color':'black','size':12}
+    ax.legend()
+
+    ax.set_xlabel("VPIP", fontdict = font)
+    ax.set_ylabel("PFR", fontdict = font)
+
+    ax.grid(True)
+
+    plt.show()
+
 def main():
     name_map, all_users = create_user_map("user_names.json")
     log_files = get_all_log_files(LOG_FILE_PATH)
@@ -140,8 +170,7 @@ def main():
     vpip = calculate_vpip(all_hands, all_users)
     pfr = calculate_pfr(all_hands, all_users)
 
-    pprint(vpip)
-    pprint(pfr)
+    plot_vpip_pfr(vpip, pfr)
     
 
 if __name__ == "__main__":
