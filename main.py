@@ -97,11 +97,13 @@ def main():
     name_map, all_users = create_user_map("user_names.json")
     log_files = get_all_log_files(LOG_FILE_PATH)
 
+    all_hands = []
     for file_path in log_files:
         hands = load_hands(file_path)
         hands = preprocess(hands, name_map)
+        all_hands.extend(hands)
 
-        calculate_vpip(hands, all_users)
+    calculate_vpip(all_hands, all_users)
     
 
 if __name__ == "__main__":
