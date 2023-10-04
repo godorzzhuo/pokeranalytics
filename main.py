@@ -1,6 +1,6 @@
 import csv
 import os
-from typing import List
+from typing import List, Dict
 
 LOG_FILE_PATH = "logs"
 
@@ -64,7 +64,22 @@ def calculate_vpip(hands: List[List[List[str]]]) -> None:
 
     print(vpip)
 
+def create_user_map(file_path):
+    import json
+    name_map: Dict[str, str] = {}
+    all_users: List[str] = []
+    with open(file_path) as user_file:
+        name_dict = json.load(user_file)
+        for unique_name, screen_names in name_dict.items():
+            all_users.append(unique_name)
+            for screen_name in screen_names:
+                name_map[screen_name] = unique_name
+        return name_map, all_users
+            
+        
+
 def main():
+    name_map, all_users = create_user_map("user_names.json")
     log_files = get_all_log_files(LOG_FILE_PATH)
 
     for file_path in log_files:
