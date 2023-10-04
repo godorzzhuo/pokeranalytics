@@ -1,5 +1,6 @@
 import csv
 import os
+from pprint import pprint
 from typing import List, Dict
 
 LOG_FILE_PATH = "logs"
@@ -36,7 +37,7 @@ def load_hands(file_path: str) -> List[List[List[str]]]:
 
     return hands
 
-def calculate_vpip(hands: List[List[List[str]]], user_list: List[str]) -> None:
+def calculate_vpip(hands: List[List[List[str]]], user_list: List[str]) -> Dict[str, float]:
     # TODO: add more general user handling
     total_hands = dict(zip(user_list, [0.0] * len(user_list)))
     vpip_hands = dict(zip(user_list, [0.0] * len(user_list)))
@@ -61,7 +62,40 @@ def calculate_vpip(hands: List[List[List[str]]], user_list: List[str]) -> None:
     for user in user_list:
         vpip[user] = vpip_hands[user] / total_hands[user]
 
-    print(vpip)
+    return vpip
+
+def calculate_pfr(hands: List[List[List[str]]], user_list: List[str]) -> Dict[str, float]:
+    # TODO: add more general user handling
+    total_hands = dict(zip(user_list, [0.0] * len(user_list)))
+    pfr_hands = dict(zip(user_list, [0.0] * len(user_list)))
+    pfr = dict(zip(user_list, [0.0] * len(user_list)))
+    for hand in hands:
+        pfr_this_hand = dict(zip(user_list, [False] * len(user_list)))
+        for item in hand:
+            action, _, _ = item
+            if "Player stacks" in action:
+                for user in user_list:
+                    if user in action:
+                        total_hands[user] += 1
+                continue
+
+            # only consider action before flop
+            if "Flop" in action:
+                break
+
+            if "raises" in action:
+                for user in user_list:
+                    if user in action:
+                        pfr_this_hand[user] = True
+        for user in user_list:
+            if pfr_this_hand[user] is True:
+                pfr_hands[user] += 1
+
+    for user in user_list:
+        pfr[user] = pfr_hands[user] / total_hands[user]
+
+    return pfr
+
 
 def preprocess(hands: List[List[List[str]]], name_map: Dict[str, str]) -> List[List[List[str]]]:
     for hand in hands:
@@ -103,7 +137,11 @@ def main():
         hands = preprocess(hands, name_map)
         all_hands.extend(hands)
 
-    calculate_vpip(all_hands, all_users)
+    vpip = calculate_vpip(all_hands, all_users)
+    pfr = calculate_pfr(all_hands, all_users)
+
+    pprint(vpip)
+    pprint(pfr)
     
 
 if __name__ == "__main__":
