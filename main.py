@@ -1,6 +1,6 @@
 import csv
 import os
-from typing import List
+from typing import List, Dict
 
 LOG_FILE_PATH = "logs"
 
@@ -36,9 +36,8 @@ def load_hands(file_path: str) -> List[List[List[str]]]:
 
     return hands
 
-def calculate_vpip(hands: List[List[List[str]]]) -> None:
+def calculate_vpip(hands: List[List[List[str]]], user_list: List[str]) -> None:
     # TODO: add more general user handling
-    user_list = ["Zhuo", "ming", "Mj", "Rish", "Jorge2", "Army"]
     total_hands = dict(zip(user_list, [0.0] * len(user_list)))
     vpip_hands = dict(zip(user_list, [0.0] * len(user_list)))
     vpip = dict(zip(user_list, [0.0] * len(user_list)))
@@ -51,7 +50,7 @@ def calculate_vpip(hands: List[List[List[str]]]) -> None:
                     if user in action:
                         total_hands[user] += 1
                 continue
-            if "bets" in action or "calls" in action:
+            if "bets" in action or "calls" in action or "raises" in action:
                 for user in user_list:
                     if user in action:
                         played_this_hand[user] = True
@@ -64,13 +63,45 @@ def calculate_vpip(hands: List[List[List[str]]]) -> None:
 
     print(vpip)
 
+def preprocess(hands: List[List[List[str]]], name_map: Dict[str, str]) -> List[List[List[str]]]:
+    for hand in hands:
+        for item in hand:
+            action, _, _ = item
+
+            # make sure all users are known
+            if action.startswith("The player "): # this is when a new player joins the game
+                screen_name = action.split("The player ")[1].split("@")[0][1:-1] # magic string processing
+                if screen_name not in name_map:
+                    print(f"Unknown user {screen_name}. Stopping analysis.")
+                    exit()
+
+            # replace different screen names with the unique name of each player
+            for screen_name, unique_name in name_map.items():
+                action = action.replace(screen_name, unique_name)
+            item[0] = action
+    return hands
+
+def create_user_map(file_path):
+    import json
+    name_map: Dict[str, str] = {}
+    all_users: List[str] = []
+    with open(file_path) as user_file:
+        name_dict = json.load(user_file)
+        for unique_name, screen_names in name_dict.items():
+            all_users.append(unique_name)
+            for screen_name in screen_names:
+                name_map[screen_name] = unique_name
+        return name_map, all_users
+
 def main():
+    name_map, all_users = create_user_map("user_names.json")
     log_files = get_all_log_files(LOG_FILE_PATH)
 
     for file_path in log_files:
         hands = load_hands(file_path)
+        hands = preprocess(hands, name_map)
 
-        calculate_vpip(hands)
+        calculate_vpip(hands, all_users)
     
 
 if __name__ == "__main__":
