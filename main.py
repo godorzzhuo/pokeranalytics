@@ -3,6 +3,8 @@ import os
 from pprint import pprint
 from typing import List, Dict
 
+from hand import Hand
+
 LOG_FILE_PATH = "logs"
 
 def get_all_log_files(dir_path: str) -> List[str]:
@@ -12,9 +14,9 @@ def get_all_log_files(dir_path: str) -> List[str]:
             log_files.append(os.path.join(dir_path, file_path))
     return log_files
 
-def load_hands(file_path: str) -> List[List[List[str]]]:
-    hands: List[List[List[str]]] = []
-    hand: List[List[str]] = []
+def load_hands(file_path: str, name_map: Dict[str, str], all_players: List[str]) -> List[Hand]:
+    hands: List[Hand] = []
+    hand_txt: List[List[str]] = []
 
     raw_data = []
     with open(file_path, 'r') as log_file:
@@ -29,36 +31,33 @@ def load_hands(file_path: str) -> List[List[List[str]]]:
             continue
         if row[0].startswith("-- ending hand"):
             in_hand = False
-            hands.append(hand)
-            hand = []
+            hand_txt = preprocess_hand_txt(hand_txt, name_map)
+            new_hand = Hand(hand_txt)
+            if new_hand.valid:
+                hands.append(new_hand)
+            hand_txt = []
             continue
         if in_hand is True:
-            hand.append(row)
+            hand_txt.append(row)
 
     return hands
 
-def calculate_vpip(hands: List[List[List[str]]], user_list: List[str],
+def calculate_vpip(hands: List[Hand], user_list: List[str],
         min_player: int = 2, max_player: int = 10) -> Dict[str, float]:
     # TODO: add more general user handling
     total_hands = dict(zip(user_list, [0.0] * len(user_list)))
     vpip_hands = dict(zip(user_list, [0.0] * len(user_list)))
     vpip = dict(zip(user_list, [0.0] * len(user_list)))
     for hand in hands:
+        if len(hand.players) < min_player or len(hand.players) > max_player:
+            continue
+        for player in hand.players:
+            total_hands[player] += 1
+
         played_this_hand = dict(zip(user_list, [False] * len(user_list)))
-        for item in hand:
-            action, _, _ = item
-            if "Player stacks" in action:
-                n_players = action.count('@')
-                if n_players < min_player or n_players > max_player:
-                    break
-                for user in user_list:
-                    if user in action:
-                        total_hands[user] += 1
-                continue
-            if "bets" in action or "calls" in action or "raises" in action:
-                for user in user_list:
-                    if user in action:
-                        played_this_hand[user] = True
+        for action in hand.all_actions:
+            if action.action in ["bet", "call", "raise"]:
+                played_this_hand[action.player] = True
         for user in user_list:
             if played_this_hand[user] is True:
                 vpip_hands[user] += 1
@@ -68,33 +67,22 @@ def calculate_vpip(hands: List[List[List[str]]], user_list: List[str],
 
     return vpip
 
-def calculate_pfr(hands: List[List[List[str]]], user_list: List[str],
+def calculate_pfr(hands: List[Hand], user_list: List[str],
         min_player: int = 2, max_player: int = 10) -> Dict[str, float]:
     # TODO: add more general user handling
     total_hands = dict(zip(user_list, [0.0] * len(user_list)))
     pfr_hands = dict(zip(user_list, [0.0] * len(user_list)))
     pfr = dict(zip(user_list, [0.0] * len(user_list)))
     for hand in hands:
+        if len(hand.players) < min_player or len(hand.players) > max_player:
+            continue
+        for player in hand.players:
+            total_hands[player] += 1
+
         pfr_this_hand = dict(zip(user_list, [False] * len(user_list)))
-        for item in hand:
-            action, _, _ = item
-            if "Player stacks" in action:
-                n_players = action.count('@')
-                if n_players < min_player or n_players > max_player:
-                    break
-                for user in user_list:
-                    if user in action:
-                        total_hands[user] += 1
-                continue
-
-            # only consider action before flop
-            if "Flop" in action:
-                break
-
-            if "raises" in action:
-                for user in user_list:
-                    if user in action:
-                        pfr_this_hand[user] = True
+        for action in hand.preflop_actions:
+            if action.action == "raise":
+                pfr_this_hand[action.player] = True
         for user in user_list:
             if pfr_this_hand[user] is True:
                 pfr_hands[user] += 1
@@ -105,35 +93,34 @@ def calculate_pfr(hands: List[List[List[str]]], user_list: List[str],
     return pfr
 
 
-def preprocess(hands: List[List[List[str]]], name_map: Dict[str, str]) -> List[List[List[str]]]:
-    for hand in hands:
-        for item in hand:
-            action, _, _ = item
+def preprocess_hand_txt(hand_txt: List[List[str]], name_map: Dict[str, str]) -> List[List[str]]:
+    for item in hand_txt:
+        action, _, _ = item
 
-            # make sure all users are known
-            if action.startswith("The player "): # this is when a new player joins the game
-                screen_name = action.split("The player ")[1].split("@")[0][1:-1] # magic string processing
-                if screen_name not in name_map:
-                    print(f"Unknown user {screen_name}. Stopping analysis.")
-                    exit()
+        # make sure all users are known
+        if action.startswith("The player "): # this is when a new player joins the game
+            screen_name = action.split("The player ")[1].split("@")[0][1:-1] # magic string processing
+            if screen_name not in name_map:
+                print(f"Unknown user {screen_name}. Stopping analysis.")
+                exit()
 
-            # replace different screen names with the unique name of each player
-            for screen_name, unique_name in name_map.items():
-                action = action.replace(screen_name, unique_name)
-            item[0] = action
-    return hands
+        # replace different screen names with the unique name of each player
+        for screen_name, unique_name in name_map.items():
+            action = action.replace(screen_name, unique_name)
+        item[0] = action
+    return hand_txt
 
 def create_user_map(file_path):
     import json
     name_map: Dict[str, str] = {}
-    all_users: List[str] = []
+    all_players: List[str] = []
     with open(file_path) as user_file:
         name_dict = json.load(user_file)
         for unique_name, screen_names in name_dict.items():
-            all_users.append(unique_name)
+            all_players.append(unique_name)
             for screen_name in screen_names:
                 name_map[screen_name] = unique_name
-        return name_map, all_users
+        return name_map, all_players
 
 def plot_vpip_pfr(vpip: Dict[str, float], pfr: Dict[str, float]) -> None:
     import matplotlib.pyplot as plt
@@ -190,17 +177,16 @@ def get_args():
 
 def main():
     args = get_args()
-    name_map, all_users = create_user_map("user_names.json")
+    name_map, all_players = create_user_map("user_names.json")
     log_files = get_all_log_files(LOG_FILE_PATH)
 
-    all_hands = []
+    all_hands: List[Hand] = []
     for file_path in log_files:
-        hands = load_hands(file_path)
-        hands = preprocess(hands, name_map)
+        hands = load_hands(file_path, name_map, all_players)
         all_hands.extend(hands)
 
-    vpip = calculate_vpip(all_hands, all_users, min_player = args.min_player, max_player = args.max_player)
-    pfr = calculate_pfr(all_hands, all_users, min_player = args.min_player, max_player = args.max_player)
+    vpip = calculate_vpip(all_hands, all_players, min_player = args.min_player, max_player = args.max_player)
+    pfr = calculate_pfr(all_hands, all_players, min_player = args.min_player, max_player = args.max_player)
 
     plot_vpip_pfr(vpip, pfr)
     
