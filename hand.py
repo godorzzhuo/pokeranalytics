@@ -8,6 +8,9 @@ class Action:
     def __str__(self):
         return f"Player: {self.player}, Action: {self.action}"
 
+    def __repr__(self):
+        return f"Player: {self.player}, Action: {self.action}"
+
     @property
     def player(self):
         return self._player

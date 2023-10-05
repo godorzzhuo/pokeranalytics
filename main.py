@@ -44,7 +44,6 @@ def load_hands(file_path: str, name_map: Dict[str, str], all_players: List[str])
 
 def calculate_vpip(hands: List[Hand], user_list: List[str],
         min_player: int = 2, max_player: int = 10) -> Dict[str, float]:
-    # TODO: add more general user handling
     total_hands = dict(zip(user_list, [0.0] * len(user_list)))
     vpip_hands = dict(zip(user_list, [0.0] * len(user_list)))
     vpip = dict(zip(user_list, [0.0] * len(user_list)))
@@ -69,7 +68,6 @@ def calculate_vpip(hands: List[Hand], user_list: List[str],
 
 def calculate_pfr(hands: List[Hand], user_list: List[str],
         min_player: int = 2, max_player: int = 10) -> Dict[str, float]:
-    # TODO: add more general user handling
     total_hands = dict(zip(user_list, [0.0] * len(user_list)))
     pfr_hands = dict(zip(user_list, [0.0] * len(user_list)))
     pfr = dict(zip(user_list, [0.0] * len(user_list)))
@@ -92,6 +90,23 @@ def calculate_pfr(hands: List[Hand], user_list: List[str],
 
     return pfr
 
+def analyze_turn_fold_freq(hands, players):
+    turn_call_hands = dict(zip(players, [0.0] * len(players)))
+    turn_fold_hands = dict(zip(players, [0.0] * len(players)))
+    for hand in hands:
+        called_this_hand = dict(zip(players, [False] * len(players)))
+        for action in hand.turn_actions:
+            if action.action == "call":
+                called_this_hand[action.player] = True
+            if action.action == "fold":
+                turn_fold_hands[action.player] += 1
+        for player in players:
+            if called_this_hand[player] is True:
+                turn_call_hands[player] += 1
+
+    for player in players:
+        turn_fold_freq = turn_fold_hands[player] / (turn_call_hands[player] + turn_fold_hands[player])
+        print(f"Player {player}'s turn fold frequency is {turn_fold_freq:.1%}")
 
 def preprocess_hand_txt(hand_txt: List[List[str]], name_map: Dict[str, str]) -> List[List[str]]:
     for item in hand_txt:
@@ -187,6 +202,8 @@ def main():
 
     vpip = calculate_vpip(all_hands, all_players, min_player = args.min_player, max_player = args.max_player)
     pfr = calculate_pfr(all_hands, all_players, min_player = args.min_player, max_player = args.max_player)
+
+    analyze_turn_fold_freq(all_hands, all_players)
 
     plot_vpip_pfr(vpip, pfr)
     
