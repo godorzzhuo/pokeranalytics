@@ -120,7 +120,14 @@ def preprocess_hand_txt(hand_txt: List[List[str]], name_map: Dict[str, str]) -> 
                 exit()
 
         # replace different screen names with the unique name of each player
-        for screen_name, unique_name in name_map.items():
+        # the "find and replace" needs to be in order, from longest match first
+        # e.g. if user "John" has two screen names "JJJ" and "JJJ2", replacing "JJJ"
+        # with "John" will set the final name to be "John2", which is incorrect
+        name_map_keys_ordered = list(name_map.keys())
+        name_map_keys_ordered.sort()
+        for screen_name in reversed(name_map_keys_ordered):
+            unique_name = name_map[screen_name]
+            flag = False
             action = action.replace(screen_name, unique_name)
         item[0] = action
     return hand_txt
