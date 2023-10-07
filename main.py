@@ -62,7 +62,8 @@ def calculate_vpip(hands: List[Hand], user_list: List[str],
                 vpip_hands[user] += 1
 
     for user in user_list:
-        vpip[user] = vpip_hands[user] / total_hands[user]
+        if total_hands[user] > 0:
+            vpip[user] = vpip_hands[user] / total_hands[user]
 
     return vpip
 
@@ -86,7 +87,8 @@ def calculate_pfr(hands: List[Hand], user_list: List[str],
                 pfr_hands[user] += 1
 
     for user in user_list:
-        pfr[user] = pfr_hands[user] / total_hands[user]
+        if total_hands[user] > 0:
+            pfr[user] = pfr_hands[user] / total_hands[user]
 
     return pfr
 
@@ -105,8 +107,9 @@ def analyze_turn_fold_freq(hands, players):
                 turn_call_hands[player] += 1
 
     for player in players:
-        turn_fold_freq = turn_fold_hands[player] / (turn_call_hands[player] + turn_fold_hands[player])
-        print(f"Player {player}'s turn fold frequency is {turn_fold_freq:.1%}")
+        if turn_call_hands[player] + turn_fold_hands[player] > 0:
+            turn_fold_freq = turn_fold_hands[player] / (turn_call_hands[player] + turn_fold_hands[player])
+            print(f"Player {player}'s turn fold frequency is {turn_fold_freq:.1%}")
 
 def preprocess_hand_txt(hand_txt: List[List[str]], name_map: Dict[str, str]) -> List[List[str]]:
     for item in hand_txt:
